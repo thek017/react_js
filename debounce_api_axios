@@ -1,0 +1,97 @@
+import { useEffect, useState } from "react"
+import axios from "axios"
+
+function useDebounced(value,delay){
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(()=>{
+    const handler = setTimeout(()=>{
+      setDebouncedValue(value)
+    },delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  },[value,delay])
+
+  return debouncedValue
+}
+
+function App() {
+  const [query, setQuery] = useState("")
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const debouncedQuery = useDebounced(query, 500)
+
+  useEffect(() => {
+    if (!debouncedQuery || debouncedQuery.trim().length <= 2) {
+      setData([])
+      return
+    }
+
+    const controller = new AbortController()
+
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const res = await axios.get(
+          `https://jsonplaceholder.typicode.com/users`,
+          { signal: controller.signal }
+        )
+
+        const filteredUsers = res.data.filter((user) =>
+          user.name.toLowerCase().includes(debouncedQuery.toLowerCase())
+        )
+
+        setData(filteredUsers)
+
+        
+
+        
+
+      } catch (err) {
+        if (err.code !== "ERR_CANCELED") {
+          console.error(err)
+          setError("Failed to fetch data")
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+    //cleanup function to abort fetch on component unmount or query change
+    return () => {
+      controller.abort()
+    }
+  }, [debouncedQuery])
+
+  return (
+    <div style={{ padding: 20 }}>
+      <input
+        placeholder="Search user..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+
+      {loading && <p>Loading...</p>}
+      {error && <p>{error}</p>}
+
+      <ul>
+        <h1>Users data</h1>
+        {data.length === 0 ? (
+          <p>No users found</p>
+        ) : (
+          data.map(user => (
+            <li key={user.id}>{user.name}</li>
+          ))
+        )}
+      </ul>
+    </div>
+  )
+}
+
+export default App
